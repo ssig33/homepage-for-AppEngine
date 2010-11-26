@@ -1,24 +1,24 @@
 require 'sinatra'
-require 'active_record'
 require 'haml'
-require 'bluecloth'
+require 'bluefeather'
 require 'cgi'
-require 'rack/csrf'
-require 'logger'
+require 'dm-core'
+require 'digest'
 
-ActiveRecord::Base.establish_connection(
-  :adapter => 'sqlite3',
-  :database => 'production.sqlite3'
-)
+SITE_NAME = "site name"
+PASSWD = "" #how to make password : ruby -e "require 'digest';puts Digest::MD5.hexdigest('your passwd')"
 
-ActiveRecord::Base.logger = Logger.new("./database.log")
+DataMapper.setup(:default, "appengine://auto")
 
-#ActiveRecord::Migrator.migrate("migrate/", nil)
+class Page
+  include DataMapper::Resource
+  property :id, Text, :key => true
+  property :body, Text
+  property :name, Text
+  property :created_at, Time
 
-
-class Page < ActiveRecord::Base
   def html
-    BlueCloth.new(self.body).to_html rescue "<pre>#{self.body}</pre>"
+    BlueFeather.parse(self.body) rescue "<pre>#{self.body}</pre>"
   end
 end
 
@@ -26,34 +26,34 @@ configure do
   set :logging, false
   set :app_file, __FILE__
   use Rack::Session::Cookie, :secret => 'fsdjkfhsjkhr23f8fhsdjkvhnsdjhrfuiscflaaadn8or'
-  use Rack::Csrf, :raise => true
 end
 
 get '/' do
-  @page = Page.where(:name => "index").order("created_at desc").first
+  p Page.all
+  @page = Page.first(:conditions => {:id => "index"}, :order => [:created_at.desc])
   redirect '/edit/index' unless @page
   haml :page
 end
 
 get '/edit/:id' do
-  @page = Page.where(:name => params[:id]).order("created_at desc").first
+  @page = Page.first(:conditions => {:name => params[:id]}, :order => [:created_at.desc])
   @page = Page.new if @page == nil
   haml :edit
 end
 
 get '/:id' do
-  file = open("public/#{params[:id]}/index.html").read rescue nil
-  return file if file
-  @page = Page.where(:name => params[:id]).order("created_at desc").first
+  @page = Page.first(:conditions => {:id => params[:id]}, :order => [:created_at.desc])
   redirect "/edit/#{params[:id]}" unless @page
   return haml :page
 end
 
 post '/update' do
-  raise if Digest::MD5.hexdigest(params[:password]) != ""
+  raise if Digest::MD5.hexdigest(params[:password]) != PASSWORD
   page = Page.new
   page.name = params[:id]
+  page.id = params[:id]
   page.body = params[:body]
+  page.created_at = Time.now
   page.save
   redirect "/#{params[:id]}"
 end
@@ -65,35 +65,9 @@ helpers do
 
   def title
     if request.path_info == "/" or request.path_info == "/index"
-      return "ssig33.com"
+      return SITE_NAME
     else
-      return "ssig33.com - #{@page.name}"
+      return "#{SITE_NAME} - #{@page.name}"
     end
   end
 end
-
-__END__
-@@ page
-<!DOCTYPE html>
-%meta{:charset => "UTF-8"}
-%title=h title
-%link{:href => "http://ssig33.com/common.css", :media => "screen", :rel => "stylesheet", :type => "text/css"}
-%meta{:name => "viewport", :content => "width=320, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"}
-%div#all~@page.html
-
-@@ edit
-<!DOCTYPE html>
-%meta{:charset => "UTF-8"}
-%title=h "Edit - #{params[:id]}"
-%link{:href => "http://ssig33.com/common.css", :media => "screen", :rel => "stylesheet", :type => "text/css"}
-%meta{:name => "viewport", :content => "width=320, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"}
-%div#all
-  %form{:action => "/update", :method => "post"}
-    =Rack::Csrf.csrf_tag(env)
-    %input{:id => "id", :name => "id", :type => "hidden", :value => "#{params[:id]}"}
-    %p
-      %textarea{:cols => "80", :id => "bodY", :name => "body", :rows => "30"}=@page.body #rescue ""
-    %p 
-      %input{:id => "password", :name => "password", :type => "password"}
-    %p
-      %input{:name => "commit", :type => "submit", :value => "Save changes"}

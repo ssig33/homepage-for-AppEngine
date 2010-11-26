@@ -1,0 +1,14 @@
+<!DOCTYPE html>
+%meta{:charset => "UTF-8"}
+%title=h "Edit - #{params[:id]}"
+%link{:href => "http://ssig33.com/common.css", :media => "screen", :rel => "stylesheet", :type => "text/css"}
+%meta{:name => "viewport", :content => "width=320, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"}
+%div#all
+  %form{:action => "/update", :method => "post"}
+    %input{:id => "id", :name => "id", :type => "hidden", :value => "#{params[:id]}"}
+    %p
+      %textarea{:cols => "80", :id => "bodY", :name => "body", :rows => "30"}=@page.body #rescue ""
+    %p 
+      %input{:id => "password", :name => "password", :type => "password"}
+    %p
+      %input{:name => "commit", :type => "submit", :value => "Save changes"}
