@@ -1,0 +1,3 @@
+application: site
+version: 1
+runtime: jruby
